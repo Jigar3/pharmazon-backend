@@ -28,7 +28,7 @@ credentials = service_account.Credentials. from_service_account_file('../assets/
 client = vision.ImageAnnotatorClient(credentials=credentials)
 
 
-@app.route('/medicine/<query>/', methods=['GET'])
+@app.route('/api/medicine/<query>/', methods=['GET'])
 def getMedicineList(query):
     page = requests.get(url + query, headers=agent).text
     soup = BeautifulSoup(page, 'html.parser')
@@ -60,7 +60,7 @@ def getMedicineList(query):
     return jsonify({'medList': medList})
 
 
-@app.route("/medicine/data", methods=['POST'])
+@app.route("/api/medicine/data", methods=['POST'])
 def getIndividualMedicineData():
     url = "https://www.medplusmart.com" + request.json['url']
     page = requests.get(url, headers=agent).text
@@ -114,7 +114,7 @@ def getIndividualMedicineData():
     return jsonify(data)
 
 
-@app.route("/user/cart", methods=['GET'])
+@app.route("/api/user/cart", methods=['GET'])
 def getCart():
     arr = []
     for c in cart.find():
@@ -127,7 +127,7 @@ def getCart():
     return jsonify({'data': arr, 'data2': arr2})
 
 
-@app.route("/user/cart", methods=['POST'])
+@app.route("/api/user/cart", methods=['POST'])
 def postCart():
     data = {
         "hello": "hello"
@@ -139,7 +139,7 @@ def postCart():
     return "Done Inserting"
 
 
-@app.route("/user/cart", methods=['DELETE'])
+@app.route("/api/user/cart", methods=['DELETE'])
 def buy():
     arr = []
     for c in cart.find():
@@ -156,7 +156,7 @@ def buy():
     return "Done Bro"
 
 
-@app.route("/prescription/upload", methods=['POST'])
+@app.route("/api/prescription/upload", methods=['POST'])
 def uploadPrescription():
     file = request.files['file']
     file.save(os.path.join('../assets/uploaded_prescription/', file.filename))
