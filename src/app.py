@@ -11,6 +11,8 @@ from google.oauth2 import service_account
 from google.cloud import vision
 from google.cloud.vision import types
 
+from utils import *
+
 app = Flask(__name__)
 
 # Headers for requests
@@ -54,7 +56,7 @@ def getMedicineList(query):
                 "link": link.strip(),
                 "price": price[count].text.strip().replace("\t", "")
             }
-
+            print(temp)
             medList.append(temp)
 
     return jsonify({'medList': medList})
@@ -62,6 +64,7 @@ def getMedicineList(query):
 
 @app.route("/api/medicine/data", methods=['POST'])
 def getIndividualMedicineData():
+    print(request.json['url'])
     url = "https://www.medplusmart.com" + request.json['url']
     page = requests.get(url, headers=agent).text
 
@@ -76,43 +79,45 @@ def getIndividualMedicineData():
     medicine_information = {}
     medicine_alternatives = []
 
-    for i in range(0, len(labels) - 2):
-        medicine_details[labels[i].text.strip().replace("\n", " ").replace("\t", "")] = values[i].text.strip().replace("\n", " ").replace("\t", "")
+    try:
+        for i in range(0, len(labels) - 2):
+            medicine_details[labels[i].text.strip().replace("\n", " ").replace("\t", "")] = values[i].text.strip().replace("\n", " ").replace("\t", "")
 
-    details = soup.select(".color-blue")
-    answers = soup.select(".color-blue + p")
+        details = soup.select(".color-blue")
+        answers = soup.select(".color-blue + p")
 
-    for i in range(0, len(answers)):
-        medicine_information[details[i].text.strip()] = answers[i].text.strip()
+        for i in range(0, len(answers)):
+            medicine_information[details[i].text.strip()] = answers[i].text.strip()
 
-    titles = soup.select(".col-xs-12 .table-responsive")
-    cursor = titles[0].select(".cursor")
+        titles = soup.select(".col-xs-12 .table-responsive")
+        cursor = titles[0].select(".cursor")
 
-    for c in cursor:
-        alt_data = c.text.strip().replace("\n", ",").replace(",,", ",").split(",")
+        for c in cursor:
+            alt_data = c.text.strip().replace("\n", ",").replace(",,", ",").split(",")
 
-        for i in range(0, len(alt_data)):
-            temp = {
-                "medicine_name": alt_data[0],
-                "manufacturer": alt_data[1],
-                "form": alt_data[2],
-                "pack_size": alt_data[3],
-                "prize": alt_data[5]
-            }
-            if(alt_data[5] == "INR"):
-                continue
+            for i in range(0, len(alt_data)):
+                temp = {
+                    "medicine_name": alt_data[0],
+                    "manufacturer": alt_data[1],
+                    "form": alt_data[2],
+                    "pack_size": alt_data[3],
+                    "prize": alt_data[5]
+                }
+                if(alt_data[5] == "INR"):
+                    continue
 
-        medicine_alternatives.append(temp)
+            medicine_alternatives.append(temp)
 
-    data = {
-        "medicine_details": medicine_details,
-        "medicine_information": medicine_information,
-        "name": request.json['url'].split("/")[2],
-        "medicine_alternatives": medicine_alternatives
-    }
+        data = {
+            "medicine_details": medicine_details,
+            "medicine_information": medicine_information,
+            "name": request.json['url'].split("/")[2],
+            "medicine_alternatives": medicine_alternatives
+        }
 
-    return jsonify(data)
-
+        return jsonify(data)
+    except:
+        return jsonify({'data': {}})
 
 @app.route("/api/user/cart", methods=['GET'])
 def getCart():
@@ -124,16 +129,12 @@ def getCart():
     for c in history.find():
         arr2.append(json.loads(json_util.dumps(c)))
 
-    return jsonify({'data': arr, 'data2': arr2})
+    return jsonify({'cart': arr, 'history': arr2})
 
 
 @app.route("/api/user/cart", methods=['POST'])
 def postCart():
-    data = {
-        "hello": "hello"
-    }
-
-    # data = request.json['']
+    data = request.json['data']
     cart.insert_one(data)
 
     return "Done Inserting"
@@ -156,11 +157,13 @@ def buy():
     return "Done Bro"
 
 
-@app.route("/api/prescription/upload", methods=['POST'])
-def uploadPrescription():
-    file = request.files['file']
-    file.save(os.path.join('../assets/uploaded_prescription/', file.filename))
-    imageObject = Image.open("../assets/uploaded_prescription/" + file.filename)
+@app.route("/api/prescription/upload/<image_name>", methods=['GET'])
+def uploadPrescription(image_name):
+    print(image_name)
+    # file = request.files['file']  
+    # file.save(os.path.join('../assets/uploaded_prescription/', file.filename))
+    # imageObject = Image.open("../assets/uploaded_prescription/" + file.filename)
+    imageObject = Image.open("../assets/uploaded_prescription/" + image_name)
 
     data_to_return = {}
 
@@ -204,6 +207,7 @@ def uploadPrescription():
                  "prsp1.jpg", "prsp2.jpg", "prsp3.jpg", "prsp4.jpg", "prsp5.jpg", "dosage1.jpg", "dosage2.jpg",
                  "dosage3.jpg", "dosage4.jpg", "dosage5.jpg"]
 
+    fetched_data = {}
     for name in names_arr:
         file_name = "../assets/all_data/" + name
         with io.open(file_name, 'rb') as image_file:
@@ -214,11 +218,29 @@ def uploadPrescription():
         texts = response.text_annotations
 
         if(len(texts) != 0):
-            print(name, texts[0].description)
+            fetched_data[name] = texts[0].description
         else:
-            print(name, "")
+            fetched_data[name] = ""
 
-    return "Uploaded File"
+    for key, value in fetched_data.items():
+        data = getMedList(value)
+
+    return jsonify({'data': fetched_data})
+
+
+@app.route("/api/cartBanado", methods=['POST'])
+def cartBanao():
+    data = request.json['data']
+
+    meriList = []
+
+    for i in range(1, 6):
+        if(data['prsp' + str(i) + ".jpg"].strip() != ""):
+            listKeMembers = getMedList(data['prsp' + str(i) + ".jpg"].strip())
+            cart.insert(listKeMembers[0])
+
+    return "Chal Gaya"
+    # return "Cool Bro"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
